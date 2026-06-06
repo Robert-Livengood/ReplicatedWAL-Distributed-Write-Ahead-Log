@@ -11,6 +11,9 @@ The goal of this project is to demonstrate the following:
 - leader/follower replication
 - deterministic tests
 
+## Acronyms
+LSN -> Log Sequence Number
+
 ## Architecture
 
 ## Build
