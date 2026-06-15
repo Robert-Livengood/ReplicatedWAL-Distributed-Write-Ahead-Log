@@ -56,7 +56,7 @@ The magic value allows the recovery scanner to determine whether it is positione
 Example:
 
 ```cpp
-constexpr std::uint32_t kWalRecordMagic = 0x57414C31; // "WAL1"
+constexpr std::uint32_t magic = 0x314C4157; // WAL1 - litte endian
 ```
 
 ### `payload_len`

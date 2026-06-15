@@ -1,1 +1,21 @@
-# TODO -> Configure cmake structure
+cmake_minimum_required(VERSION 3.16)
+
+project(ReplicatedWAL
+    VERSION 0.1.0
+    LANGUAGES CXX
+)
+
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
+
+add_executable(wal_server
+    src/main.cpp
+    src/wal/Record.cpp
+    src/wal/Wal.cpp
+)
+
+target_include_directories(wal_server PRIVATE
+    src
+    src/wal
+)
