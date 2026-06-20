@@ -198,10 +198,16 @@ void writeRecord(ostream& out, Lsn lsn, const vector<uint8_t>& payload) {
     writePayload(out, payload);
 }
 
-RecordReadResult readRecord(istream& in, uint64_t nextOffset) {
+RecordReadResult readRecord(istream& in, uint64_t nextOffset, uintmax_t filesize) {
     RecordReadResult res;
     uint64_t offset = nextOffset;
 
+    // ensure the remaining filesize is large enough for at least the header
+    if (filesize - offset < SIZE_HEADER) {
+        res.status = RecordReadStatus::Corrupt;
+        return res;
+    }
+    
     // CRC covers magic + payload length + LSN + payload.
     // The stored CRC field itself is excluded.
     uint32_t crc = initCRC();
@@ -220,6 +226,12 @@ RecordReadResult readRecord(istream& in, uint64_t nextOffset) {
 
     uint32_t dataCRC = readCrc(in, offset);
     offset += SIZE_CRC;
+
+    // Now that the header is parsed -> ensure the remaining filesize is large enough for the payload
+    if (filesize - offset < payloadLen) {
+        res.status = RecordReadStatus::Corrupt;
+        return res;
+    }
 
     res.payload = readPayload(in, offset, payloadLen, crc);
     offset += res.payload.size();

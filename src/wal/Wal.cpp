@@ -4,6 +4,8 @@
 #include <iostream>
 #include <fstream>
 #include <string>
+#include <filesystem>
+#include <algorithm>
 
 Wal::Wal(const fs::path dataDir) {
     cout << "Constructing wal object\n";
@@ -18,7 +20,9 @@ Lsn Wal::append(const vector<uint8_t>& payload) {
     cout << "Creating segment file\n";
     error_code ec;
     if (fs::exists(dataDir_, ec)) {
-        string filename = to_string(0)+ ".log"; // TODO - need to handle multiple segment files eventually
+        // TODO -> add padding to the segment file names
+        // TODO -> need to handle multiple segment files eventually
+        string filename = to_string(0)+ ".log";
         fs::path filepath = dataDir_ / filename;
 
         ofstream file(filepath, ios::app | ios::binary);
@@ -47,6 +51,7 @@ vector<uint8_t> Wal::read(Lsn lsn) const {
 }
 
 void Wal::recover() {
+    nextLsn_ = 0;
     cout << "Recovering\n";
     if (!dataDir_.empty() && !fs::exists(dataDir_)) {
         cout << "Directory " << dataDir_ << " does not exist. Creating it now.\n";
@@ -54,34 +59,88 @@ void Wal::recover() {
     }
     else {
         // segments exist... need to:
-        // 1. scan through _get_thread_local_invalid_parameter_handler
+        // 1. scan through segments
         // 2. check for errors
         // 3. truncate corrupt records
         // 4. update nextLsn_ based on last valid LSN + 1
-        for (const auto& entry : fs::recursive_directory_iterator(dataDir_)){
+
+        // collect and sort segment files so the order is deterministic
+        vector<fs::path> segmentFiles;
+        for (const auto& entry : fs::directory_iterator(dataDir_)) {
+            if (!entry.is_regular_file())
+                continue;
+
+            segmentFiles.push_back(entry.path());
+        }
+        sort(segmentFiles.begin(), segmentFiles.end());
+
+        // once corruption is found the current segment is truncatedted at the first
+        // this means the remaining segments cannot be trusted -> remove them.
+        bool foundCorruption = false;
+
+        for (const auto& segmentFile : segmentFiles){
+            // If the last segment had corrupt records -> remove the rest of the files
+            if (foundCorruption) {
+                error_code ec;
+                fs::remove(segmentFile, ec);
+
+                if (ec) {
+                    cerr << "Error removing file: " << ec.message() << "\n";
+                }
+                continue;
+            }
+            
             RecordReadResult res;
+            res.status = RecordReadStatus::EndOfFile;
             uint64_t offset = 0;
 
-            ifstream file(entry.path(), ios::binary);
+            ifstream file(segmentFile, ios::binary);
 
             if (!file.is_open()) {
-                cerr << "Error opening the file! " << entry.path() << "\n";
+                cerr << "Error opening the file! " << segmentFile << "\n";
                 exit(1);
             }
 
-            uintmax_t filesize = fs::file_size(entry.path());
+            uintmax_t filesize = fs::file_size(segmentFile);
             if (filesize > UINT64_MAX)
                 throw std::runtime_error("File size is too large");
 
+            uint64_t recordStart = offset;
+
             while (offset < filesize) {
-                res = readRecord(file, offset);
-                // TODO - more recovery steps will be needed here eventually
+                // save the start of the record in case corruption is found -> this allows the prev good records to be retained
+                recordStart = offset;
+
+                try {
+                    res = readRecord(file, offset, filesize);
+                }
+                catch (...){
+                    res.status = RecordReadStatus::Corrupt;
+                }
+
                 if (res.status == RecordReadStatus::Ok) {
                     nextLsn_ = res.lsn + 1;
                     offset = res.nextOffset;
                 }
+                else if (res.status == RecordReadStatus::Corrupt) {
+                    break;
+                }
             }
-            if (res.status == RecordReadStatus::Corrupt){} // TODO - need to add corrupt record handling
+
+            if (res.status == RecordReadStatus::Corrupt) {
+                file.close();
+                error_code ec;
+                fs::resize_file(segmentFile, recordStart, ec);
+
+                if (ec) {
+                    cerr << "Error truncating file: " << ec.message() << "\n";
+                }
+                foundCorruption = true;
+                continue;
+            }
+
+            if (file.is_open())
+                file.close();
         }
     }
 }

@@ -13,6 +13,7 @@ constexpr uint8_t SIZE_MAGIC = 4;
 constexpr uint8_t SIZE_PAYLOAD_LEN = 4;
 constexpr uint8_t SIZE_LSN = 8;
 constexpr uint8_t SIZE_CRC = 4;
+constexpr uint8_t SIZE_HEADER = 20;
 
 enum class RecordReadStatus {
     Ok,
@@ -28,4 +29,4 @@ struct RecordReadResult {
 };
 
 void writeRecord(ostream& out, Lsn lsn, const vector<uint8_t>& payload);
-RecordReadResult readRecord(istream& in, uint64_t nextOffset);
+RecordReadResult readRecord(istream& in, uint64_t nextOffset, uintmax_t filesize);
