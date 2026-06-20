@@ -7,6 +7,8 @@
 #include <filesystem>
 #include <algorithm>
 
+using namespace std;
+
 Wal::Wal(const fs::path dataDir) {
     cout << "Constructing wal object\n";
     nextLsn_ = 0;
@@ -32,7 +34,22 @@ Lsn Wal::append(const vector<uint8_t>& payload) {
             exit(1);
         }
 
+        // save file position -> this is the start of the record
+        file.seekp(0, ios::end);
+        streampos filePosition = file.tellp();
+
         writeRecord(file, lsn, payload);
+
+        RecordLocation recordData;
+        recordData.segmentPath = filepath;
+        recordData.offset = static_cast<uint64_t>(static_cast<streamoff>(filePosition));
+
+        // update file position -> this is the end of the record
+        filePosition = file.tellp();
+        recordData.recordSize = static_cast<uint64_t>(static_cast<streamoff>(filePosition)) - recordData.offset;
+
+        // save the records data in the LSN map
+        lsnMap.insert_or_assign(lsn, recordData);
 
         file.close();
     }
@@ -47,12 +64,39 @@ Lsn Wal::append(const vector<uint8_t>& payload) {
 
 vector<uint8_t> Wal::read(Lsn lsn) const {
     cout << "Reading record\n";
-    return *new vector<uint8_t>();
+
+    auto it = lsnMap.find(lsn);
+    if (it == lsnMap.end())
+        return {};
+
+    RecordLocation recordData = it->second;
+
+    ifstream file(recordData.segmentPath, ios::binary);
+
+    RecordReadResult res;
+    try {
+        res = readRecord(file, recordData.offset, fs::file_size(recordData.segmentPath));
+    }
+    catch (...) {
+        res.status = RecordReadStatus::Corrupt;
+    }
+
+    if (res.nextOffset != recordData.offset + recordData.recordSize) {
+        return {};
+    }
+
+    if (res.status == RecordReadStatus::Ok && res.lsn == lsn)
+        return res.payload;
+    else
+        return {};
 }
 
 void Wal::recover() {
     nextLsn_ = 0;
+    lsnMap.clear();
+
     cout << "Recovering\n";
+
     if (!dataDir_.empty() && !fs::exists(dataDir_)) {
         cout << "Directory " << dataDir_ << " does not exist. Creating it now.\n";
         fs::create_directory(dataDir_);
@@ -119,8 +163,14 @@ void Wal::recover() {
                 }
 
                 if (res.status == RecordReadStatus::Ok) {
-                    nextLsn_ = res.lsn + 1;
+                    nextLsn_ = max(nextLsn_, res.lsn + 1);
                     offset = res.nextOffset;
+
+                    RecordLocation recordData;
+                    recordData.segmentPath = segmentFile;
+                    recordData.offset = recordStart;
+                    recordData.recordSize = offset - recordStart;
+                    lsnMap.insert_or_assign(res.lsn, recordData);
                 }
                 else if (res.status == RecordReadStatus::Corrupt) {
                     break;

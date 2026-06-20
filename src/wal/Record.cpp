@@ -165,7 +165,7 @@ void writeRecord(ostream& out, Lsn lsn, const vector<uint8_t>& payload) {
 
     // TODO - need better error handling for this case, but this at least works for now
     if (payload.size() > UINT32_MAX)
-        return;
+        throw std::runtime_error("payload too large");
 
     uint32_t magic = 0x314C4157; // WAL1 - litte endian
     uint32_t payloadLen = static_cast<uint32_t>(payload.size());
