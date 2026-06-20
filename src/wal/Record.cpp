@@ -29,18 +29,33 @@ namespace {
     }
 
     uint32_t initCRC() {
+        // Standard CRC32 starts with all bits set.
         return 0xFFFFFFFF;
     }
 
+    uint32_t finalizeCRC(uint32_t crc) {
+        // Standard CRC32 inverts the bits after all input bytes are processed.
+        return crc ^ 0xFFFFFFFF;
+    }
+
     uint32_t updateCRC(uint32_t crc, const uint8_t* data, size_t len) {
+        // Standard CRC32 uses the reflected polynomial 0xEDB88320.
+        // This function updates the running CRC state with the provided bytes.
+        // The caller is responsible for initializing the CRC before the first update
+        // and finalizing it after all bytes have been processed.
+        static const uint32_t POLY = 0xEDB88320;
+
         for (size_t i = 0; i < len; ++i) {
+            // Mix the next input byte into the low byte of the running CRC.
             crc ^= data[i];
 
+            // Process each of the 8 bits in the current byte.
             for (int bit = 0; bit < 8; ++bit) {
-                if (crc & 1) {
-                    crc = (crc >> 1) ^ 0xEDB88320;
-                }
-                else {
+                // If the low bit is set, shift and apply the CRC polynomial.
+                // Otherwise, only shift. This is the bit-by-bit CRC division step.
+                if ((crc & 1) != 0) {
+                    crc = (crc >> 1) ^ POLY;
+                } else {
                     crc = crc >> 1;
                 }
             }
@@ -143,10 +158,6 @@ namespace {
 
         return bytes;
     }
-
-    uint32_t finalizeCRC(uint32_t crc) {
-        return crc ^ 0xFFFFFFFF;
-    }
 }
 
 void writeRecord(ostream& out, Lsn lsn, const vector<uint8_t>& payload) {
@@ -160,6 +171,8 @@ void writeRecord(ostream& out, Lsn lsn, const vector<uint8_t>& payload) {
     uint32_t payloadLen = static_cast<uint32_t>(payload.size());
 
     // initialize the CRC and then update after each write step.
+    // CRC covers magic + payload length + LSN + payload.
+    // The stored CRC field itself is excluded.
     uint32_t crc = initCRC();
 
     // Need to write the record data to the input file.
@@ -169,6 +182,7 @@ void writeRecord(ostream& out, Lsn lsn, const vector<uint8_t>& payload) {
     writeAndUpdateCRC_uint64(out, crc, lsn);
 
     if (!payload.empty()) {
+        // Payload is included in the CRC even though it is written after the CRC field.
         crc = updateCRC(crc, payload.data(), payloadLen);
     }
 
@@ -180,6 +194,7 @@ void writeRecord(ostream& out, Lsn lsn, const vector<uint8_t>& payload) {
     serialize_uint32(finalCRC, bytesCRC);
     write_uint32(out, bytesCRC);
 
+    // payload is the final thing to write
     writePayload(out, payload);
 }
 
@@ -187,6 +202,8 @@ RecordReadResult readRecord(istream& in, uint64_t nextOffset) {
     RecordReadResult res;
     uint64_t offset = nextOffset;
 
+    // CRC covers magic + payload length + LSN + payload.
+    // The stored CRC field itself is excluded.
     uint32_t crc = initCRC();
 
     if (readMagic(in, offset, crc) != 0x314C4157) {
