@@ -12,6 +12,7 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 set(WAL_SOURCES
     src/wal/Record.cpp
     src/wal/Wal.cpp
+    src/server/WalWriter.cpp
 )
 
 add_library(wal_core
@@ -20,6 +21,7 @@ add_library(wal_core
 
 target_include_directories(wal_core PUBLIC
     src/wal
+    src/server
 )
 
 add_executable(wal_demo

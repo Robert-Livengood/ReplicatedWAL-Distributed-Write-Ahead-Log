@@ -1,5 +1,6 @@
 #include "Wal.h"
 #include "Record.h"
+#include "WalWriter.h"
 
 #include <iostream>
 #include <filesystem>
@@ -11,9 +12,7 @@ namespace fs = std::filesystem;
 
 bool test_cleanRestart() {
     const fs::path testDir = "test-data/clean-restart";
-    if (fs::is_directory(testDir)) {
-        fs::remove_all(testDir);
-    }
+    fs::remove_all(testDir);
 
     // store LSNs and their payloads to validate after recovery
     unordered_map<Lsn, vector<uint8_t>> testData;
@@ -82,9 +81,7 @@ bool test_cleanRestart() {
 
 bool test_corruptTail() {
     const fs::path testDir = "test-data/corrupted-tail";
-    if (fs::is_directory(testDir)) {
-        fs::remove_all(testDir);
-    }
+    fs::remove_all(testDir);
 
     // store LSNs and their payloads to validate after recovery
     unordered_map<Lsn, vector<uint8_t>> testData;
@@ -152,9 +149,7 @@ bool test_corruptTail() {
 
 bool test_badChecksum() {
     const fs::path testDir = "test-data/bad-checksum";
-    if (fs::is_directory(testDir)) {
-        fs::remove_all(testDir);
-    }
+    fs::remove_all(testDir);
 
     // store LSNs and their payloads to validate after recovery
     unordered_map<Lsn, vector<uint8_t>> testData;
@@ -252,11 +247,80 @@ bool test_badChecksum() {
     return true;
 }
 
+bool test_queue() {
+    const fs::path testDir = "test-data/queue";
+    fs::remove_all(testDir);
+
+    // store each appended LSN and its payload
+    vector<pair<Lsn, vector<uint8_t>>> results;
+
+    {
+        WalWriter writer(testDir);
+        vector<thread> threads;
+        mutex resultsMutex;
+
+        // Queue all the LSNs/payloads in their own thread to validate the writer queue
+        for (int i = 0; i < 10; ++i) {
+            threads.emplace_back([&writer, &results, &resultsMutex, i] {
+                vector<uint8_t> payload = {static_cast<uint8_t>('a' + i)};
+                Lsn lsn = writer.append(payload);
+                {
+                    lock_guard<mutex> lock(resultsMutex);
+                    results.emplace_back(pair(lsn, payload));
+                }
+            });
+        }
+
+        // clean up threads
+        for (auto& thread : threads) {
+            thread.join();
+        }
+
+        // sort results by LSN -> payloads not necessarily appended in order due to race conditions,
+        // but need to verify the LSN order is deterministic.
+        sort(results.begin(), results.end());
+    }
+
+    // verify 10 results exist
+    if (results.size() != 10)
+        return false;
+
+    // verify the LSNs are 0 to 9
+    for (int i = 0; i < results.size(); i++){
+        if (results[i].first != i)
+            return false;
+    }
+
+    Wal verifyRead(testDir);
+    verifyRead.recover();
+
+    // verify that the stored payload matches the expected payload
+    for (const auto& result : results) {
+        if (verifyRead.read(result.first) != result.second) {
+            return false;
+        }
+    }
+
+    // validate that a new append uses LSN = 10
+    const Lsn finalLsn = 10;
+    const vector<uint8_t> finalPayload = {'f', 'i', 'n', 'a', 'l'};
+    const auto lsnFinal = verifyRead.append(finalPayload);
+
+    if (lsnFinal != finalLsn)
+        return false;
+
+    if (verifyRead.read(lsnFinal) != finalPayload)
+        return false;
+
+    return true;
+}
+
 int main()
 {
     if (!fs::is_directory("test-data")) {
         fs::create_directory("test-data");
     }
+    
     cout << "\nTesting WAL implementation.\n\n";
 
     // TEST 1
@@ -288,4 +352,18 @@ int main()
     else {
         cout << "\n3. PASSED\n";
     }
+
+    cout << "\n4. Testing WalWriter implementation\n\n";
+
+    // TEST 4
+    cout << "4. Starting Queue test\n\n";
+    if (!test_queue()) {
+        cerr << "\n4. FAILED - Queue";
+        return 1;
+    }
+    else {
+        cout << "\n4. PASSED\n";
+    }
+
+    return 0;
 }

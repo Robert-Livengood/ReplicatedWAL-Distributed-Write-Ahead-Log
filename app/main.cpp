@@ -1,32 +1,43 @@
-#include "Wal.h"
+#include "WalWriter.h"
+
 #include <iostream>
 
 using namespace std;
 
-int main()
-{
-    Wal wal{"data"};
-    wal.recover();
+int main() {
+    WalWriter writer{"data"};
 
-    const auto lsn = wal.append({'h', 'e', 'l', 'l', 'o'});
-    cout << "Appended record at LSN " << lsn << '\n';
+    std::vector<uint8_t> payload = {'h', 'e', 'l', 'l', 'o'};
 
-    const auto lsn2 = wal.append({'g', 'o', 'o', 'd', 'b', 'y', 'e'});
-    cout << "Appended record at LSN " << lsn2 << '\n';
+    Lsn lsn = writer.append(payload);
 
-    vector<uint8_t> record = wal.read(lsn);
+    std::cout << "Appended LSN: " << lsn << "\n";
 
-    cout << "Data from read LSN " << lsn << ": ";
-    for (auto byte : record) {
-        cout << byte;
+    std::vector<std::thread> threads;
+    std::vector<Lsn> lsns;
+    std::mutex lsnsMutex;
+
+    for (int i = 0; i < 10; ++i) {
+        threads.emplace_back([&writer, &lsns, &lsnsMutex, i] {
+            std::vector<uint8_t> payload = {static_cast<uint8_t>('a' + i)};
+            Lsn lsn = writer.append(payload);
+
+            {
+                std::lock_guard<std::mutex> lock(lsnsMutex);
+                lsns.push_back(lsn);
+            }
+        });
     }
-    cout << "\n";
 
-    vector<uint8_t> record2 = wal.read(lsn2);
-
-    cout << "Data from read LSN " << lsn2 << ": ";
-    for (auto byte : record2) {
-        cout << byte;
+    for (auto& thread : threads) {
+        thread.join();
     }
-    cout << "\n";
+
+    std::sort(lsns.begin(), lsns.end());
+
+    for (Lsn lsn : lsns) {
+        std::cout << "Returned LSN: " << lsn << "\n";
+    }
+
+    return 0;
 }
