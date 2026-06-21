@@ -8,6 +8,7 @@
 #include <algorithm>
 
 using namespace std;
+namespace fs = std::filesystem;
 
 Wal::Wal(const fs::path dataDir) {
     cout << "Constructing wal object\n";
@@ -19,7 +20,6 @@ Lsn Wal::append(const vector<uint8_t>& payload) {
     Lsn lsn = nextLsn_;
     nextLsn_++;
     
-    cout << "Creating segment file\n";
     error_code ec;
     if (fs::exists(dataDir_, ec)) {
         // TODO -> add padding to the segment file names
@@ -58,7 +58,6 @@ Lsn Wal::append(const vector<uint8_t>& payload) {
         exit(1);
     }
 
-    cout << "Returning nextLsn_: " << lsn << endl;
     return lsn;
 }
 

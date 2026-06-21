@@ -6,11 +6,10 @@
 #include <unordered_map>
 
 using Lsn = std::uint64_t;
-namespace fs = std::filesystem;
 
 class Wal {
 public:
-    explicit Wal(fs::path dataDir);
+    explicit Wal(std::filesystem::path dataDir);
 
     Lsn append(const std::vector<uint8_t>& payload);
     
@@ -20,12 +19,12 @@ public:
 
 private:
     struct RecordLocation {
-        fs::path segmentPath;
+        std::filesystem::path segmentPath;
         uint64_t offset;
         uint64_t recordSize;
     };
 
     std::unordered_map<Lsn, RecordLocation> lsnMap;
-    fs::path dataDir_;
+    std::filesystem::path dataDir_;
     Lsn nextLsn_;
 };
