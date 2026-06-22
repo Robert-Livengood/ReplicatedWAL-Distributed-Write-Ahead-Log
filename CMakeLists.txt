@@ -13,6 +13,7 @@ set(WAL_SOURCES
     src/wal/Record.cpp
     src/wal/Wal.cpp
     src/server/WalWriter.cpp
+    src/server/WalServer.cpp
 )
 
 add_library(wal_core
