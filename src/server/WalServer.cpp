@@ -65,7 +65,7 @@ void WalServer::runOnce() {
 
     try {
         // receive the payload from the client
-        uint32_t payloadLenBytes[4];
+        uint8_t payloadLenBytes[4];
         readExact(clientSocket, &payloadLenBytes, sizeof(payloadLenBytes));
 
         uint32_t payloadLen = (static_cast<uint32_t>(payloadLenBytes[0]) << 0)  |

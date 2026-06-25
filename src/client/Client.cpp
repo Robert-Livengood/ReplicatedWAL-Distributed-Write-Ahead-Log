@@ -41,10 +41,11 @@ Lsn Client::runOnce(const string& host, uint16_t port, const vector<uint8_t>& pa
 
     // send the payload length first
     uint8_t payloadLenBuffer[4];
-    uint32_t payloadLen = payload.size();
     if (payload.size() > UINT32_MAX) {
         throw runtime_error("payload too large");
     }
+    uint32_t payloadLen = payload.size();
+
     // serialize the payloadLen -> little endian
     payloadLenBuffer[0] = static_cast<uint8_t>((payloadLen >> 0) & 0xFF);
     payloadLenBuffer[1] = static_cast<uint8_t>((payloadLen >> 8) & 0xFF);

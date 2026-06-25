@@ -10,6 +10,7 @@
 #include <vector>
 
 class Client {
+public:
     Lsn runOnce(const std::string& host, uint16_t port, const std::vector<uint8_t>& payload);
 
 private:
