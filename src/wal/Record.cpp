@@ -98,9 +98,9 @@ namespace {
         crc = updateCRC(crc, bytes, 4);
 
         return (static_cast<uint32_t>(bytes[0]) << 0)  |
-            (static_cast<uint32_t>(bytes[1]) << 8)  |
-            (static_cast<uint32_t>(bytes[2]) << 16) |
-            (static_cast<uint32_t>(bytes[3]) << 24);
+               (static_cast<uint32_t>(bytes[1]) << 8)  |
+               (static_cast<uint32_t>(bytes[2]) << 16) |
+               (static_cast<uint32_t>(bytes[3]) << 24);
     }
 
     uint64_t readUint64(istream& in, uint64_t offset, uint32_t& crc) {
@@ -117,13 +117,13 @@ namespace {
         crc = updateCRC(crc, bytes, 8);
 
         return (static_cast<uint64_t>(bytes[0]) << 0)  |
-            (static_cast<uint64_t>(bytes[1]) << 8)  |
-            (static_cast<uint64_t>(bytes[2]) << 16) |
-            (static_cast<uint64_t>(bytes[3]) << 24) |
-            (static_cast<uint64_t>(bytes[4]) << 32) |
-            (static_cast<uint64_t>(bytes[5]) << 40) |
-            (static_cast<uint64_t>(bytes[6]) << 48) |
-            (static_cast<uint64_t>(bytes[7]) << 56);
+               (static_cast<uint64_t>(bytes[1]) << 8)  |
+               (static_cast<uint64_t>(bytes[2]) << 16) |
+               (static_cast<uint64_t>(bytes[3]) << 24) |
+               (static_cast<uint64_t>(bytes[4]) << 32) |
+               (static_cast<uint64_t>(bytes[5]) << 40) |
+               (static_cast<uint64_t>(bytes[6]) << 48) |
+               (static_cast<uint64_t>(bytes[7]) << 56);
     }
     
     uint32_t readMagic(istream& in, uint64_t offset, uint32_t& crc) {

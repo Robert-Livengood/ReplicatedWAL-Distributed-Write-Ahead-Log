@@ -1,9 +1,10 @@
 #pragma once
 
 #include "WalWriter.h"
+#include "Record.h"
 
 #include <filesystem>
-#include <winsock2.h>
+#include <WinSock2.h>
 #include <cstddef>
 #include <cstdint>
 

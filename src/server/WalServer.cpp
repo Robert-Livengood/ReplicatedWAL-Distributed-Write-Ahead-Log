@@ -12,10 +12,8 @@ WalServer::WalServer(std::filesystem::path dataDir) : m_writer(std::move(dataDir
 
     WSADATA wsaData;
 
-    int iResult = WSAStartup(MAKEWORD(2, 2), &wsaData);
-
-    if (iResult != 0) {
-        std::cerr << "WSAStartup failed with error: " << iResult << "\n";
+    if (WSAStartup(MAKEWORD(2, 2), &wsaData) != 0) {
+        std::cerr << "WSAStartup failed with error: " << WSAGetLastError() << "\n";
         throw std::runtime_error("WSAStartup failed");
     }
 
@@ -32,18 +30,14 @@ WalServer::WalServer(std::filesystem::path dataDir) : m_writer(std::move(dataDir
     service.sin_port = htons(PORT);
     service.sin_addr.s_addr = htonl(INADDR_ANY);
 
-    iResult = bind(m_listenSocket, (SOCKADDR*)&service, sizeof(service));
-
-    if (iResult == SOCKET_ERROR) {
+    if (bind(m_listenSocket, (SOCKADDR*)&service, sizeof(service)) == SOCKET_ERROR) {
         std::cerr << "Socket bind failed with error: " << WSAGetLastError() << "\n";
         closesocket(m_listenSocket);
         WSACleanup();
         throw std::runtime_error("socket bind failed");
     }
 
-    iResult = listen(m_listenSocket, 5);
-
-    if (iResult == SOCKET_ERROR) {
+    if (listen(m_listenSocket, 5) == SOCKET_ERROR) {
         std::cerr << "Socket listen failed with error: " <<WSAGetLastError() << "\n";
         closesocket(m_listenSocket);
         WSACleanup();
@@ -71,10 +65,13 @@ void WalServer::runOnce() {
 
     try {
         // receive the payload from the client
-        uint32_t payloadLen = 0;
-        readExact(clientSocket, &payloadLen, sizeof(payloadLen));
+        uint32_t payloadLenBytes[4];
+        readExact(clientSocket, &payloadLenBytes, sizeof(payloadLenBytes));
 
-        payloadLen = ntohl(payloadLen);
+        uint32_t payloadLen = (static_cast<uint32_t>(payloadLenBytes[0]) << 0)  |
+                              (static_cast<uint32_t>(payloadLenBytes[1]) << 8)  |
+                              (static_cast<uint32_t>(payloadLenBytes[2]) << 16) |
+                              (static_cast<uint32_t>(payloadLenBytes[3]) << 24);
 
         // if the payload length is too large -> reject it
         if (payloadLen > MAX_PAYLOAD_LEN) {
@@ -109,14 +106,12 @@ void WalServer::readExact(SOCKET clientSocket, void* buffer, size_t bytesToRead)
             // client connection closed
             throw std::runtime_error("recv from client did not consume the expected number of bytes");
         }
-        if (rcvd == SOCKET_ERROR) {
+        else if (rcvd == SOCKET_ERROR) {
             // error in recv
             std::cerr << "Socket recv failed with error: " << WSAGetLastError() << "\n";
             throw std::runtime_error("recv from client failed");
         }
-        else {
-            totalRead += rcvd;
-        }
+        totalRead += rcvd;
     }
 }
 
@@ -139,6 +134,7 @@ void WalServer::sendExact(SOCKET clientSocket, const void* buffer, size_t bytesT
 }
 
 void WalServer::serializeLsn(Lsn lsn, uint8_t buffer[8]) {
+    // little endian to match Record.cpp endianess
     buffer[0] = static_cast<uint8_t>((lsn >> 0) & 0xFF);
     buffer[1] = static_cast<uint8_t>((lsn >> 8) & 0xFF);
     buffer[2] = static_cast<uint8_t>((lsn >> 16) & 0xFF);
