@@ -7,9 +7,14 @@
 using namespace std;
 
 int main(int argc, char* argv[]) {
-    string dataDir(argv[0]);
-    int port = stoi(argv[1]);
+    if (argc != 3) {
+        cerr << "usage: wal_server_demo <data-dir> <port>\n";
+        return 1;
+    }
     
+    string dataDir(argv[1]);
+    int port = stoi(argv[2]);
+
     try {
         WalServer server{dataDir, port};
         server.run();

@@ -27,10 +27,15 @@ void runClientThread(string host, int port, int clientId) {
 }
 
 int main(int argc, char* argv[]) {
+    if (argc != 4) {
+        cerr << "usage: wal_client_demo <host> <port> <numClients>\n";
+        return 1;
+    }
+
     // default host = "127.0.0.1"
-    string host = argv[0];
-    int port = stoi(argv[1]);
-    uint16_t numClients = stoi(argv[2]);
+    string host = argv[1];
+    int port = stoi(argv[2]);
+    uint16_t numClients = stoi(argv[3]);
 
     vector<thread> threads;
 
