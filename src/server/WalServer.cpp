@@ -7,6 +7,7 @@
 #include <vector>
 #include <stdexcept>
 #include <cstdint>
+#include <thread>
 
 WalServer::WalServer(std::filesystem::path dataDir) : m_writer(std::move(dataDir)), m_listenSocket(INVALID_SOCKET) {
 
@@ -53,16 +54,23 @@ WalServer::~WalServer() {
     WSACleanup();
 }
 
-void WalServer::runOnce() {
-    sockaddr_in clientAddr{};
-    int clientAddrLen = sizeof(clientAddr);
+void WalServer::run() {
+    while (true) {
+        sockaddr_in clientAddr{};
+        int clientAddrLen = sizeof(clientAddr);
 
-    SOCKET clientSocket = accept(m_listenSocket, reinterpret_cast<sockaddr*>(&clientAddr), &clientAddrLen);
+        SOCKET clientSocket = accept(m_listenSocket, reinterpret_cast<sockaddr*>(&clientAddr), &clientAddrLen);
 
-    if (clientSocket == INVALID_SOCKET) {
-        throw std::runtime_error("socket accept failed");
+        if (clientSocket == INVALID_SOCKET) {
+            throw std::runtime_error("socket accept failed");
+        }
+
+        std::thread handlerThread(&WalServer::handleClient, this, clientSocket);
+        handlerThread.detach();
     }
+}
 
+void WalServer::handleClient(SOCKET clientSocket) {
     try {
         // receive the payload from the client
         uint8_t payloadLenBytes[4];
@@ -88,13 +96,12 @@ void WalServer::runOnce() {
         uint8_t lsnBuffer[8];
         serializeLsn(lsn, lsnBuffer);
         sendExact(clientSocket, lsnBuffer, sizeof(lsnBuffer));
-
-        closesocket(clientSocket);
     }
     catch (...) {
         closesocket(clientSocket);
         throw std::runtime_error("Error receiving from client");
     }
+    closesocket(clientSocket);
 }
 
 void WalServer::readExact(SOCKET clientSocket, void* buffer, size_t bytesToRead) {
