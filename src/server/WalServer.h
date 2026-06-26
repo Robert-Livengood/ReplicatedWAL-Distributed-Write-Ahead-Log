@@ -10,7 +10,7 @@
 
 class WalServer {
 public:
-    explicit WalServer(std::filesystem::path dataDir);
+    explicit WalServer(std::filesystem::path dataDir, int port);
     ~WalServer();
 
     WalServer(const WalServer&) = delete;
@@ -19,7 +19,6 @@ public:
     void run();
 
 private:
-    static constexpr int PORT = 8080;
     static constexpr std::size_t MAX_PAYLOAD_LEN = 1024;
 
     void handleClient(SOCKET clientSocket);

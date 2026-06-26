@@ -10,14 +10,14 @@
 
 using namespace std;
 
-void runClientThread(int clientId) {
+void runClientThread(string host, int port, int clientId) {
     try {
         Client client;
 
         string message = "Hello from client " + to_string(clientId);
         vector<uint8_t> payload(message.begin(), message.end());
 
-        Lsn lsn = client.runOnce("127.0.0.1", 8080, payload);
+        Lsn lsn = client.runOnce(host, port, payload);
 
         cout << "\nClient " << clientId << " received LSN: " << lsn << "\n";
     }
@@ -26,11 +26,16 @@ void runClientThread(int clientId) {
     }
 }
 
-int main() {
+int main(int argc, char* argv[]) {
+    // default host = "127.0.0.1"
+    string host = argv[0];
+    int port = stoi(argv[1]);
+    uint16_t numClients = stoi(argv[2]);
+
     vector<thread> threads;
 
-    for (int i = 0; i < 10; i++) {
-        threads.emplace_back(thread(runClientThread, i));
+    for (int i = 0; i < numClients; i++) {
+        threads.emplace_back(thread(runClientThread, host, port, i));
     }
 
     for (auto& t : threads) {

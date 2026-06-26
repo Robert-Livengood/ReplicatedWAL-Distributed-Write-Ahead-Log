@@ -9,7 +9,7 @@
 #include <cstdint>
 #include <thread>
 
-WalServer::WalServer(std::filesystem::path dataDir) : m_writer(std::move(dataDir)), m_listenSocket(INVALID_SOCKET) {
+WalServer::WalServer(std::filesystem::path dataDir, int port) : m_writer(std::move(dataDir)), m_listenSocket(INVALID_SOCKET) {
 
     WSADATA wsaData;
 
@@ -28,7 +28,7 @@ WalServer::WalServer(std::filesystem::path dataDir) : m_writer(std::move(dataDir
 
     sockaddr_in service{};
     service.sin_family = AF_INET;
-    service.sin_port = htons(PORT);
+    service.sin_port = htons(port);
     service.sin_addr.s_addr = htonl(INADDR_ANY);
 
     if (bind(m_listenSocket, (SOCKADDR*)&service, sizeof(service)) == SOCKET_ERROR) {

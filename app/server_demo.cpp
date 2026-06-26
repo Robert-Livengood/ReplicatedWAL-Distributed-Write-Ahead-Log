@@ -2,12 +2,16 @@
 #include "WalServer.h"
 
 #include <iostream>
+#include <string>
 
 using namespace std;
 
-int main() {
+int main(int argc, char* argv[]) {
+    string dataDir(argv[0]);
+    int port = stoi(argv[1]);
+    
     try {
-        WalServer server{"data"};
+        WalServer server{dataDir, port};
         server.run();
     }
     catch (const exception& ex) {
