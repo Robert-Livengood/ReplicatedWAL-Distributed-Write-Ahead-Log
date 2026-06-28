@@ -45,9 +45,13 @@ python .\tests\tcp_integration_test.py
 
 ## Correctness guarantees
 
-## Current Limitations
-- Project is in prototype stage. Nothing much to show yet.
-- Current implementation is single-node only. 
+## Current Status
+
+Milestone 1 is complete.
+
+The project currently supports a single-node durable WAL server. Clients can append records over TCP, concurrent client requests are serialized through one writer thread, records are persisted with checksums, and the server can recover valid records after restart.
+
+Replication and leader/follower behavior are planned future milestones.
 
 ## Design Notes
 
