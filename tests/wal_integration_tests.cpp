@@ -365,5 +365,7 @@ int main()
         cout << "\n4. PASSED\n";
     }
 
+    cout << "All Tests PASSED!";
+
     return 0;
 }
