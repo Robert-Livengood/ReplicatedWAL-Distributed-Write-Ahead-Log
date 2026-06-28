@@ -7,8 +7,6 @@ from pathlib import Path
 import struct
 import zlib
 
-# TODO need better shutdown mechanism, but this works for now
-
 ROOT = Path(__file__).resolve().parents[1]
 BUILD_DIR = ROOT / "build"
 
@@ -104,7 +102,7 @@ def main():
     client_cmd = [str(CLIENT_EXE), str(HOST), str(PORT), str(NUM_CLIENTS)]
 
     # first init server
-    server_proc = subprocess.Popen(server_cmd, cwd=ROOT)
+    server_proc = subprocess.Popen(server_cmd, cwd=ROOT, stdin=subprocess.PIPE, text=True)
 
     try:
         waitForServer(HOST, PORT)
@@ -165,13 +163,19 @@ def main():
         print("\nAll Tests PASSED!")
 
     finally:
-        server_proc.terminate()
+        if server_proc.poll() is None:
+            try:
+                server_proc.stdin.write("\n")
+                server_proc.stdin.flush()
+                server_proc.wait(timeout=5)
+            except:
+                server_proc.terminate()
 
-        try:
-            server_proc.wait(timeout=5)
-        except subprocess.TimeoutExpired:
-            server_proc.kill()
-            server_proc.wait()
+                try:
+                    server_proc.wait(timeout=5)
+                except subprocess.TimeoutExpired:
+                    server_proc.kill()
+                    server_proc.wait()
 
 
 if __name__ == "__main__":
