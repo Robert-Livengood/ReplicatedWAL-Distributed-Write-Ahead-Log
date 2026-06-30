@@ -117,11 +117,10 @@ def computeCRC(magic, payload_len, lsn, payload):
 
     return zlib.crc32(crc_bytes) & 0xFFFFFFFF
 
-def verifyRecords(path: Path, numClients: int):
+def verifyRecords(path: Path, numClients: int, numTimesRan=1):
     # verify file size
     file_size = path.stat().st_size
-
-    expected_payloads = {f"Hello from client {i}".encode("utf-8") for i in range(numClients)}
+    expected_payloads = [f"Hello from client {i}".encode("utf-8") for n in range(numTimesRan) for i in range(numClients)]
     expected_file_size = sum(HEADER_SIZE + len(payload) for payload in expected_payloads)
 
     if file_size != expected_file_size:
@@ -132,8 +131,8 @@ def verifyRecords(path: Path, numClients: int):
     # verify the record contents
     records = parseLogFile(path)
 
-    if len(records) != numClients:
-        raise RuntimeError(f"Number of records does not match expected value: Expected: {numClients}\n Actual: {len(records)}\n")
+    if len(records) != numClients * numTimesRan:
+        raise RuntimeError(f"Number of records does not match expected value: Expected: {numClients * numTimesRan}\n Actual: {len(records)}\n")
     
     lsns = []
     actual_payloads = set()
@@ -146,7 +145,7 @@ def verifyRecords(path: Path, numClients: int):
         actual_payloads.add(record["payload"])
 
 
-    if len(set(lsns)) != numClients:
+    if len(set(lsns)) != numClients * numTimesRan:
         raise RuntimeError("Number of unique LSNs is not correct")
     
     expected_lsn = 0
