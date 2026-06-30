@@ -163,6 +163,8 @@ def verifyRecords(path: Path, numClients: int):
         
     print("\nAll Tests PASSED!")
 
-def cleanTestDir(path):
+def cleanTestDir(path: Path):
     if path.exists():
         shutil.rmtree(path)
+
+    path.resolve().parent.mkdir(parents=True, exist_ok=True)
